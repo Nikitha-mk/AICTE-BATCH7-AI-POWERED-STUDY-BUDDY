@@ -1,61 +1,66 @@
 import gradio as gr
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
-model_name = "google/flan-t5-large"
+# ---------------- MODEL ----------------
 
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+MODEL_NAME = "google/flan-t5-base"
 
-def generate(prompt, max_len=512):
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME)
+
+# ---------------- GENERATE FUNCTION ----------------
+
+def generate(prompt, max_new_tokens=256):
     inputs = tokenizer(
         prompt,
         return_tensors="pt",
-        max_length=1024,
-        truncation=True
+        truncation=True,
+        max_length=512
     )
 
     outputs = model.generate(
         **inputs,
-        max_length=max_len,
-        num_beams=5,
-        early_stopping=True
+        max_new_tokens=max_new_tokens,
+        do_sample=True,
+        temperature=0.7,
+        top_p=0.9
     )
 
     return tokenizer.decode(outputs[0], skip_special_tokens=True)
+print(generate("Explain Machine Learning in 5 bullet points"))
+# ---------------- FEATURES ----------------
 
-
-# ---------------- EXPLAIN ----------------
-def explain(topic):
+def explain_topic(topic):
     prompt = f"""
-    Explain the topic: {topic}
+    Explain the topic '{topic}' in simple language.
 
-    Requirements:
-    - Simple language
-    - Student friendly
-    - Include examples
-    - Use bullet points
+    Include:
+    - Definition
+    - Key points
+    - Examples
+    - Applications
+
+    Use bullet points.
     """
     return generate(prompt)
 
 
-# ---------------- SUMMARIZE ----------------
-def summarize(notes):
+def summarize_notes(notes):
     prompt = f"""
-    Summarize the following notes.
+    Summarize the following text.
 
     Requirements:
-    - Bullet points
-    - Important concepts only
-    - Easy exam revision format
+    - 8 bullet points
+    - Keep important information only
+    - Easy revision notes
 
-    Notes:
+    Text:
     {notes}
     """
     return generate(prompt)
 
 
-# ---------------- QUIZ ----------------
-def quiz(topic):
+def generate_quiz(topic):
     prompt = f"""
     Create 5 MCQ questions about {topic}.
 
@@ -71,54 +76,139 @@ def quiz(topic):
 
     Repeat for all 5 questions.
     """
-    return generate(prompt)
+    return generate(prompt, 400)
 
 
-# ---------------- FLASHCARDS ----------------
-def flashcards(topic):
+def generate_flashcards(topic):
     prompt = f"""
-    Create 10 study flashcards about {topic}.
+    Create 10 flashcards about {topic}.
 
     Format:
 
-    Front: Question
-    Back: Answer
+    Flashcard 1
+    Front:
+    Back:
 
-    Make them useful for exam preparation.
+    Flashcard 2
+    Front:
+    Back:
     """
-    return generate(prompt)
+    return generate(prompt, 400)
 
+# ---------------- UI ----------------
 
-with gr.Blocks() as app:
+css = """
+.gradio-container {
+    max-width: 1100px !important;
+}
 
-    gr.Markdown("# 📚 AI Study Buddy")
+.main-title {
+    text-align:center;
+    font-size:40px;
+    font-weight:bold;
+    margin-bottom:10px;
+}
 
-    # Explain Tab
-    with gr.Tab("Explain"):
-        inp = gr.Textbox(label="Topic")
-        out = gr.Textbox(label="Explanation", lines=15)
-        gr.Button("Explain").click(explain, inp, out)
+.subtitle {
+    text-align:center;
+    color:gray;
+    margin-bottom:20px;
+}
 
-    # Summary Tab
-    with gr.Tab("Summarize"):
-        notes = gr.Textbox(lines=10, label="Paste Notes")
-        summary = gr.Textbox(lines=15, label="Summary")
-        gr.Button("Summarize").click(summarize, notes, summary)
+footer {
+    display:none;
+}
+"""
 
-    # Quiz Tab
-    with gr.Tab("Quiz"):
-        topic = gr.Textbox(label="Topic")
-        quiz_out = gr.Textbox(lines=20, label="Quiz")
-        gr.Button("Generate Quiz").click(quiz, topic, quiz_out)
+with gr.Blocks(
+    title="AI Powered Study Buddy",
+    theme=gr.themes.Soft(),
+    css=css
+) as app:
 
-    # Flashcard Tab
-    with gr.Tab("Flashcards"):
-        flash_topic = gr.Textbox(label="Topic")
-        flash_out = gr.Textbox(lines=20, label="Flashcards")
-        gr.Button("Generate Flashcards").click(
-            flashcards,
-            flash_topic,
-            flash_out
-        )
+    gr.HTML("""
+    <div class="main-title">📚 AI Powered Study Buddy</div>
+    <div class="subtitle">
+    Explain • Summarize • Quiz • Flashcards
+    </div>
+    """)
 
-app.launch()
+    with gr.Tabs():
+
+        with gr.Tab("📖 Explain"):
+            topic = gr.Textbox(
+                label="Topic",
+                placeholder="Example: Machine Learning"
+            )
+
+            explain_output = gr.Textbox(
+                label="Explanation",
+                lines=15
+            )
+
+            gr.Button("Explain").click(
+                explain_topic,
+                topic,
+                explain_output
+            )
+
+        with gr.Tab("📝 Summarize"):
+            notes = gr.Textbox(
+                label="Paste Notes",
+                lines=10
+            )
+
+            summary_output = gr.Textbox(
+                label="Summary",
+                lines=15
+            )
+
+            gr.Button("Summarize").click(
+                summarize_notes,
+                notes,
+                summary_output
+            )
+
+        with gr.Tab("❓ Quiz"):
+            quiz_topic = gr.Textbox(
+                label="Enter Topic"
+            )
+
+            quiz_output = gr.Textbox(
+                label="Quiz with Answers",
+                lines=20
+            )
+
+            gr.Button("Generate Quiz").click(
+                generate_quiz,
+                quiz_topic,
+                quiz_output
+            )
+
+        with gr.Tab("🧠 Flashcards"):
+            flash_topic = gr.Textbox(
+                label="Enter Topic"
+            )
+
+            flash_output = gr.Textbox(
+                label="Flashcards",
+                lines=20
+            )
+
+            gr.Button("Generate Flashcards").click(
+                generate_flashcards,
+                flash_topic,
+                flash_output
+            )
+
+    gr.Markdown("""
+    ---
+    ### Features
+    ✅ Explain Concepts  
+    ✅ Summarize Notes  
+    ✅ Generate MCQs  
+    ✅ Show Correct Answers  
+    ✅ Create Flashcards  
+    """)
+
+app.launch(server_name="0.0.0.0", server_port=7860)
